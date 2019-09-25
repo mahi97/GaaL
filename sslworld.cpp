@@ -38,7 +38,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 using namespace std;
 
-DLL_EXPORT SSLWorld* _w;
+SSLWorld* _w;
 dReal randn_notrig(dReal mu=0.0, dReal sigma=1.0);
 dReal randn_trig(dReal mu=0.0, dReal sigma=1.0);
 dReal rand0_1();
@@ -134,8 +134,8 @@ bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 SSLWorld::SSLWorld()
     : QObject(nullptr)
 {
-    declare_receive("sim_signal");
-    declare_publish("ssl_vision");
+    // declare_receive("sim_signal");
+    // declare_publish("ssl_vision");
     isGLEnabled = false;
     customDT = -1;    
     _w = this;
@@ -311,7 +311,7 @@ SSLWorld::SSLWorld()
 
 void SSLWorld::run(){
     while(true){
-        receive("sim_signal");
+        // receive("sim_signal");
         this->step(this->cfg->DeltaTime());
     }
 }
@@ -771,7 +771,7 @@ void SSLWorld::publishPacket(int cam_id){
     int size = packet.ByteSize();
     data.resize(size);
     packet.SerializeToArray(data.data(),size);
-    publish("ssl_vision",data.data(),size);
+    // publish("ssl_vision",data.data(),size);
     packet.Clear();
 }
 void SSLWorld::addFieldLinesArcs(SSL_GeometryFieldSize *field) {

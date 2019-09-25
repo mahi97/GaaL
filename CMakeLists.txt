@@ -1,4 +1,12 @@
+cmake_minimum_required(VERSION 3.5)
+
+project(gymsim)
 # Simulator Plugin
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+include(${PROJECT_SOURCE_DIR}/cmake/Utils.cmake)
+standard_config()
+standard_paths(${PROJECT_SOURCE_DIR} bin lib)
+
 set(libs)
 # OpenGL
 find_package(OpenGL REQUIRED)
@@ -20,14 +28,13 @@ find_package(Protobuf REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 list(APPEND libs ${PROTOBUF_LIBRARIES})
 
-file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/Utils/Protobuf/*.proto")
+file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
 protobuf_generate_cpp(PROTO_CPP PROTO_H ${PROTO_FILES})
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/physics
 	${CMAKE_SOURCE_DIR}/Utils
-	${CMAKE_SOURCE_DIR}/Utils/ZSPlugin
 )
 
 file(GLOB CPPFILES 
@@ -51,10 +58,10 @@ set(srcs
     ${CPPFILES}
 )
 
-add_library(zss_simulator SHARED ${srcs})
+add_library(gymsim SHARED ${srcs})
 
-target_link_libraries(zss_simulator ${libs})
+target_link_libraries(gymsim ${libs})
 
-install(TARGETS zss_simulator
+install(TARGETS gymsim
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib)

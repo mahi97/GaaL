@@ -8,8 +8,7 @@ ParamManager::ParamManager(const QString& name):settings(nullptr){
     settings = new QSettings(name,QSettings::IniFormat);
 }
 ParamManager::~ParamManager(){
-    if(settings)
-        delete settings;
+    delete settings;
 }
 bool ParamManager::loadParam(QChar& value, const QString& key, QChar defaultValue){
     value = settings->value(key, defaultValue).toChar();
@@ -38,7 +37,7 @@ bool ParamManager::loadParam(double& value, const QString& key, double defaultVa
     }
     return true;
 }
-bool ParamManager::loadParam(QString& value, const QString& key , QString defaultValue){
+bool ParamManager::loadParam(QString& value, const QString& key , const QString& defaultValue){
     value = settings->value(key, defaultValue).toString();
     if (!settings->contains(key)){
         settings->setValue(key, defaultValue);

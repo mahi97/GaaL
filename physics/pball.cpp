@@ -46,3 +46,4 @@ void PBall::setMass(dReal mass)
     dMassSetSphereTotal(&m,m_mass,m_radius);
     dBodySetMass (body,&m);
 }
+

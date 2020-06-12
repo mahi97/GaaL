@@ -53,12 +53,12 @@ class PSurface
 {
 public:
     PSurface();
-    dSurfaceParameters surface;
+    dSurfaceParameters surface{};
     bool isIt(dGeomID i1,dGeomID i2);
-    dGeomID id1,id2;
+    dGeomID id1{},id2{};
     bool usefdir1;   //if true use fdir1 instead of ODE value
-    dVector3 fdir1;  //fdir1 is a normalized vector tangent to friction force vector
-    dVector3 contactPos,contactNormal;
+    dVector3 fdir1{};  //fdir1 is a normalized vector tangent to friction force vector
+    dVector3 contactPos{},contactNormal{};
     PSurfaceCallback* callback;
 };
 #endif // PWORLD_H

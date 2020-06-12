@@ -24,7 +24,14 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "physics/pbox.h"
 #include "physics/pball.h"
 #include "configwidget.h"
+#define ROBOT_START_Z(cfg)  (cfg->robotSettings.RobotHeight*0.5 + cfg->robotSettings.WheelRadius*1.1 + cfg->robotSettings.BottomHeight)
 
+enum KickStatus
+{
+    NO_KICK = 0,
+    FLAT_KICK = 1,
+    CHIP_KICK = 2,
+};
 
 class SimRobot
 {
@@ -63,7 +70,7 @@ public:
     class Kicker
     {
       private:
-        bool kicking;
+        KickStatus kicking;
         int rolling;
         int kickstate;
         dReal m_kickspeed,m_kicktime;
@@ -78,6 +85,7 @@ public:
         bool isTouchingBall();
         void holdBall();
         void unholdBall();
+        KickStatus isKicking();
         dJointID joint;
         dJointID robot_to_ball;
         PBox* box;
@@ -95,14 +103,12 @@ public:
     void resetRobot();
     void getXY(dReal& x,dReal& y);
     dReal getDir();
+    dReal getDir(dReal& k);
     void setXY(dReal x,dReal y);
     void setDir(dReal ang);
     int getID();
     PBall* getBall();
     PWorld* getWorld();
 };
-
-
-#define ROBOT_START_Z(cfg)  (cfg->robotSettings.RobotHeight*0.5 + cfg->robotSettings.WheelRadius*1.1 + cfg->robotSettings.BottomHeight)
 
 #endif // ROBOT_H

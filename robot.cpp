@@ -89,17 +89,17 @@ SimRobot::Kicker::Kicker(SimRobot* robot):holdingBall(false)
     dJointSetHingeParam (joint,dParamHiStop,0);
 
     rolling = 0;
-    kicking = false;
+    kicking = NO_KICK;
 }
 
 void SimRobot::Kicker::step()
 {
     if(!isTouchingBall() || rolling == 0) unholdBall();
-    if (kicking)
+    if (kicking != NO_KICK)
     {
         box->setColor(1,0.3,0);
         kickstate--;
-        if (kickstate<=0) kicking = false;
+        if (kickstate<=0) kicking = NO_KICK;
     }
     else if (rolling!=0)
     {
@@ -128,6 +128,10 @@ bool SimRobot::Kicker::isTouchingBall()
     return ((xx<rob->cfg->robotSettings.KickerThickness*2.0f+rob->cfg->BallRadius()) && (yy<rob->cfg->robotSettings.KickerWidth*0.5f) && (zz<rob->cfg->robotSettings.KickerHeight*0.5f));
 }
 
+KickStatus SimRobot::Kicker::isKicking() {
+    return kicking;
+}
+
 void SimRobot::Kicker::setRoller(int roller)
 {
     rolling = roller;
@@ -144,57 +148,7 @@ void SimRobot::Kicker::toggleRoller()
         rolling = 1;
     else rolling = 0;
 }
-void SimRobot::Kicker::holdBall(){
-    dReal vx,vy,vz;
-    dReal bx,by,bz;
-    dReal kx,ky,kz;
-    rob->chassis->getBodyDirection(vx,vy,vz);
-    rob->getBall()->getBodyPosition(bx,by,bz);
-    box->getBodyPosition(kx,ky,kz);
-    kx += vx*rob->cfg->robotSettings.KickerThickness*0.5f;
-    ky += vy*rob->cfg->robotSettings.KickerThickness*0.5f;
-    dReal xx = fabs((kx-bx)*vx + (ky-by)*vy);
-    dReal yy = fabs(-(kx-bx)*vy + (ky-by)*vx);
-    if(holdingBall || xx-rob->cfg->BallRadius() < 0) return;
-    if(kicking) {
-        return;
-    }
-    dBodySetLinearVel(rob->getBall()->body,0,0,0);
-    robot_to_ball = dJointCreateHinge(rob->getWorld()->world,0);
-    dJointAttach (robot_to_ball,box->body,rob->getBall()->body);
-    holdingBall = true;
-}
-void SimRobot::Kicker::unholdBall(){
-    if(holdingBall) {
-        dJointDestroy(robot_to_ball);
-        holdingBall = false;
-        // dReal fx,fy,fz;
-        // rob->chassis->getBodyDirection(fx,fy,fz);
-        // fz = sqrt(fx*fx + fy*fy);
-        // fx/=fz;fy/=fz;
-        // if (rolling==-1) {fx=-fx;fy=-fy;}
-        // rob->getBall()->tag = rob->getID();
 
-        // dReal vx,vy,vz;
-        // dReal bx,by,bz;
-        // dReal kx,ky,kz;
-        // rob->chassis->getBodyDirection(vx,vy,vz);
-        // rob->getBall()->getBodyPosition(bx,by,bz);
-        // box->getBodyPosition(kx,ky,kz);
-        // dReal yy = -((-(kx-bx)*vy + (ky-by)*vx)) / rob->cfg->robotSettings.KickerWidth;
-        // // rob->cfg->robotSettings.NoSpiralWidth
-        // double spiral = rob->cfg->robotSettings.NoSpiralWidth/2;
-        // if(fabs(yy) < spiral)
-        //     yy = 0;
-        // else if(yy > 0)
-        //     yy -= spiral;
-        // else if(yy < 0)
-        //     yy += spiral;
-        // dBodySetAngularVel(rob->getBall()->body,fy*rob->cfg->robotSettings.RollerTorqueFactor*1400,-fx*rob->cfg->robotSettings.RollerTorqueFactor*1400,0);
-        // dBodyAddTorque(rob->getBall()->body,yy*fx*rob->cfg->robotSettings.RollerPerpendicularTorqueFactor,yy*fy*rob->cfg->robotSettings.RollerPerpendicularTorqueFactor,0);
-    }
-    return;
-}
 void SimRobot::Kicker::kick(dReal kickspeedx, dReal kickspeedz)
 {
     dReal dx,dy,dz;
@@ -216,8 +170,37 @@ void SimRobot::Kicker::kick(dReal kickspeedx, dReal kickspeedz)
         vy += vn * dy + vt * dx;
         dBodySetLinearVel(rob->getBall()->body,vx,vy,vz);
     }
-    kicking = true;
+    if (kickspeedz >= 1) {
+        kicking = CHIP_KICK;
+    } else {
+        kicking = FLAT_KICK;
+    }
     kickstate = 10;
+}
+
+void SimRobot::Kicker::holdBall(){
+    dReal vx,vy,vz;
+    dReal bx,by,bz;
+    dReal kx,ky,kz;
+    rob->chassis->getBodyDirection(vx,vy,vz);
+    rob->getBall()->getBodyPosition(bx,by,bz);
+    box->getBodyPosition(kx,ky,kz);
+    kx += vx*rob->cfg->robotSettings.KickerThickness*0.5f;
+    ky += vy*rob->cfg->robotSettings.KickerThickness*0.5f;
+    dReal xx = fabs((kx-bx)*vx + (ky-by)*vy);
+    dReal yy = fabs(-(kx-bx)*vy + (ky-by)*vx);
+    if(holdingBall || xx-rob->cfg->BallRadius() < 0) return;
+    dBodySetLinearVel(rob->getBall()->body,0,0,0);
+    robot_to_ball = dJointCreateHinge(rob->getWorld()->world,0);
+    dJointAttach (robot_to_ball,box->body,rob->getBall()->body);
+    holdingBall = true;
+}
+
+void SimRobot::Kicker::unholdBall(){
+    if(holdingBall) {
+        dJointDestroy(robot_to_ball);
+        holdingBall = false;
+    }
 }
 
 SimRobot::SimRobot(PWorld* world,PBall *ball,ConfigWidget* _cfg,dReal x,dReal y,dReal z,dReal r,dReal g,dReal b,int rob_id,int wheeltexid,int dir)
@@ -259,9 +242,7 @@ SimRobot::SimRobot(PWorld* world,PBall *ball,ConfigWidget* _cfg,dReal x,dReal y,
 }
 
 SimRobot::~SimRobot()
-{
-
-}
+= default;
 
 PBall* SimRobot::getBall()
 {
@@ -329,10 +310,10 @@ void SimRobot::resetRobot()
     dBodySetAngularVel(dummy->body,0,0,0);
     dBodySetLinearVel(kicker->box->body,0,0,0);
     dBodySetAngularVel(kicker->box->body,0,0,0);
-    for (int i=0;i<4;i++)
+    for (auto & wheel : wheels)
     {
-        dBodySetLinearVel(wheels[i]->cyl->body,0,0,0);
-        dBodySetAngularVel(wheels[i]->cyl->body,0,0,0);
+        dBodySetLinearVel(wheel->cyl->body,0,0,0);
+        dBodySetAngularVel(wheel->cyl->body,0,0,0);
     }
     dReal x,y;
     getXY(x,y);
@@ -358,6 +339,17 @@ dReal SimRobot::getDir()
     return (y > 0) ? absAng : -absAng;
 }
 
+dReal SimRobot::getDir(dReal& k)
+{
+    dReal x,y,z;
+    chassis->getBodyDirection(x,y,z, k);
+    dReal dot = x;//zarb dar (1.0,0.0,0.0)
+    dReal length = sqrt(x*x + y*y);
+    dReal absAng = (dReal)(acos((dReal)(dot/length)) * (180.0f/M_PI));
+    return (y > 0) ? absAng : -absAng;
+}
+
+
 void SimRobot::setXY(dReal x,dReal y)
 {
     dReal xx,yy,zz,kx,ky,kz;
@@ -367,10 +359,9 @@ void SimRobot::setXY(dReal x,dReal y)
     dummy->setBodyPosition(x,y,height);
     kicker->box->getBodyPosition(kx,ky,kz);
     kicker->box->setBodyPosition(kx-xx+x,ky-yy+y,kz-zz+height);
-    for (int i=0;i<4;i++)
-    {
-        wheels[i]->cyl->getBodyPosition(kx,ky,kz);
-        wheels[i]->cyl->setBodyPosition(kx-xx+x,ky-yy+y,kz-zz+height);
+    for (auto & wheel : wheels) {
+        wheel->cyl->getBodyPosition(kx,ky,kz);
+        wheel->cyl->setBodyPosition(kx-xx+x,ky-yy+y,kz-zz+height);
     }
 }
 
@@ -387,14 +378,13 @@ void SimRobot::setDir(dReal ang)
     kicker->box->getBodyPosition(localPos[0],localPos[1],localPos[2],true);
     dMultiply0(finalPos,cRot,localPos,4,3,1);finalPos[0]+=cPos[0];finalPos[1]+=cPos[1];finalPos[2]+=cPos[2];
     kicker->box->setBodyPosition(finalPos[0],finalPos[1],finalPos[2],false);
-    for (int i=0;i<4;i++)
-    {
-        wheels[i]->cyl->getBodyRotation(wLocalRot,true);
+    for (auto & wheel : wheels) {
+        wheel->cyl->getBodyRotation(wLocalRot,true);
         dMultiply0(wRot,cRot,wLocalRot,3,3,3);
-        dBodySetRotation(wheels[i]->cyl->body,wRot);
-        wheels[i]->cyl->getBodyPosition(localPos[0],localPos[1],localPos[2],true);
+        dBodySetRotation(wheel->cyl->body,wRot);
+        wheel->cyl->getBodyPosition(localPos[0],localPos[1],localPos[2],true);
         dMultiply0(finalPos,cRot,localPos,4,3,1);finalPos[0]+=cPos[0];finalPos[1]+=cPos[1];finalPos[2]+=cPos[2];
-        wheels[i]->cyl->setBodyPosition(finalPos[0],finalPos[1],finalPos[2],false);
+        wheel->cyl->setBodyPosition(finalPos[0],finalPos[1],finalPos[2],false);
     }
 }
 

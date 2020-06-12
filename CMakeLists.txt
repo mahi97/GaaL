@@ -14,8 +14,8 @@ include_directories(${OPENGL_INCLUDE_DIR})
 list(APPEND libs ${OPENGL_LIBRARIES})
 
 # Qt5
-find_package(Qt5 COMPONENTS Core Network Gui REQUIRED)
-list(APPEND libs Qt5::Core Qt5::Network Qt5::Gui)
+find_package(Qt5 COMPONENTS Core REQUIRED)
+list(APPEND libs Qt5::Core)
 
 # ODE
 find_package(ODE REQUIRED)
@@ -30,15 +30,15 @@ list(APPEND libs ${PROTOBUF_LIBRARIES})
 
 file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
 protobuf_generate_cpp(PROTO_CPP PROTO_H ${PROTO_FILES})
-
+#set_property(SOURCE ${PROTO_FILES} PROPERTY SKIP_AUTOMOC ON)
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/physics
-	${CMAKE_SOURCE_DIR}/Utils
+	${CMAKE_SOURCE_DIR}/utils
 )
 
 file(GLOB CPPFILES 
-	"${CMAKE_SOURCE_DIR}/Utils/*.cpp"
+	"${CMAKE_SOURCE_DIR}/utils/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/physics/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/physics/*.h"
@@ -46,7 +46,7 @@ file(GLOB CPPFILES
 )
 set(HEADERS
 	sslworld.h
-)
+        )
 set(SOURCES
 	sslworld.cpp
 )
@@ -65,3 +65,11 @@ target_link_libraries(gymsim ${libs})
 install(TARGETS gymsim
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib)
+
+add_executable(gymsim_test test/main.cpp)
+
+target_link_libraries(gymsim_test gymsim)
+
+install(TARGETS gymsim_test
+		LIBRARY DESTINATION bin
+		ARCHIVE DESTINATION bin)

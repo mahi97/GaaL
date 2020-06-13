@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(gymsim)
+project(sslsim)
 # Simulator Plugin
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 include(${PROJECT_SOURCE_DIR}/cmake/Utils.cmake)
@@ -45,7 +45,7 @@ file(GLOB CPPFILES
 	"${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 set(HEADERS
-	sslworld.h
+		sslworld.hpp
         )
 set(SOURCES
 	sslworld.cpp
@@ -56,20 +56,21 @@ set(srcs
     ${HEADERS}
     ${SOURCES}
     ${CPPFILES}
-)
+		)
 
-add_library(gymsim SHARED ${srcs})
+if(APPLE)
+	set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+endif()
 
-target_link_libraries(gymsim ${libs})
+add_library(sslsim SHARED ${srcs})
+target_link_libraries(sslsim ${libs})
+install(TARGETS sslsim LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
-install(TARGETS gymsim
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib)
 
 add_executable(gymsim_test test/main.cpp)
+target_link_libraries(gymsim_test sslsim)
+install(TARGETS gymsim_test LIBRARY DESTINATION bin ARCHIVE DESTINATION bin)
 
-target_link_libraries(gymsim_test gymsim)
-
-install(TARGETS gymsim_test
-		LIBRARY DESTINATION bin
-		ARCHIVE DESTINATION bin)
+add_library(sslsim-c-lib SHARED pygrsim/pygrsim_c_wrapper.cpp pygrsim/pygrsim_c_wrapper.h)
+target_link_libraries(sslsim-c-lib sslsim)
+install(TARGETS sslsim-c-lib LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)

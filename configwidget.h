@@ -21,21 +21,16 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include "parammanager.h"
 
-namespace ZSS{
 class ParamManagerSimulator:public ParamManager{
 public:
-    ParamManagerSimulator():ParamManager("zss_simulator.ini"){}
-    ~ParamManagerSimulator(){}
+    ParamManagerSimulator():ParamManager("grsim_simulator.ini"){}
+    ~ParamManagerSimulator() = default;
 };
 typedef Singleton<ParamManagerSimulator> pm;
-}
 
 #define DEF_VALUE(type,Type,name)  \
     type v_##name; \
     inline type name() { return v_##name; }
-
-#define DEF_ENUM(type,name)  \
-    DEF_VALUE(type,type,name)
 
 class RobotSettings {
 public:
@@ -80,7 +75,8 @@ public:
   RobotSettings yellowSettings;
 
   /*    Geometry/Game Vartypes   */
-  DEF_VALUE(int,Int,Robots_Count)
+  DEF_VALUE(int,Int,Yellow_Robots_Count)
+  DEF_VALUE(int,Int,Blue_Robots_Count)
   DEF_VALUE(double,Double,Field_Line_Width)
   DEF_VALUE(double,Double,Field_Length)
   DEF_VALUE(double,Double,Field_Width)
@@ -131,7 +127,6 @@ public:
   DEF_VALUE(int, Int, plotter_port)
   DEF_VALUE(bool, Bool, plotter)
   void loadRobotSettings(QString team);
-public slots:  
   void loadRobotsSettings();
 };
 

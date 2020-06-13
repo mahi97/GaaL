@@ -59,7 +59,7 @@ class SSLWorld(gym.Env):
         sslsim_lib.SSL_del(self.obj)
 
     def step(self, action_dict):
-        actions_0 = [None for _ in range(int(self.config['game_vars']['blue_robots_count'])]
+        actions_0 = [None for _ in range(int(self.config['game_vars']['blue_robots_count']))]
         actions_1 = [None for _ in range(int(self.config['game_vars']['yellow_robots_count']))]
 
         for k, v in enumerate(action_dict):
@@ -73,8 +73,8 @@ class SSLWorld(gym.Env):
                 print('Wrong Action keywords')
 
         act_0 = Action()
-        act_0.vel = [v for v in action_0.]
-        return sslsim_lib.step(self.obj, act_0, act_1)
+        # act_0.vel = [v for v in action_0.]
+        # return sslsim_lib.step(self.obj, act_0, act_1)
 
     def reset(self):
         return sslsim_lib.reset(self.obj)

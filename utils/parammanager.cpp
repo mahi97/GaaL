@@ -1,6 +1,5 @@
 #include "parammanager.h"
 #include <QStringList>
-namespace ZSS {
 ParamManager::ParamManager():settings(nullptr){
     settings = new QSettings("./config.ini",QSettings::IniFormat);
 }
@@ -92,4 +91,4 @@ void ParamManager::clear() {
     settings->clear();
     settings->sync();
 }
-}
+

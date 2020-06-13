@@ -2,11 +2,10 @@
 #define PARAMMANAGER_H
 #include <QSettings>
 #include "singleton.hpp"
-namespace ZSS {
 class ParamManager{
 public:
     ParamManager();
-    ParamManager(const QString&);
+    explicit ParamManager(const QString&);
     ~ParamManager();
     bool loadParam(QChar&, const QString&, QChar d = 0);
     bool loadParam(int&, const QString&, int d = 0);
@@ -25,33 +24,5 @@ public:
 protected:
     QSettings *settings;
 };
-class ParamManagerZSS:public ParamManager{
-public:
-    ParamManagerZSS():ParamManager("zss.ini"){}
-    ~ParamManagerZSS(){}
-};
-class ParamManagerKickParam:public ParamManager{
-public:
-    ParamManagerKickParam():ParamManager("kickparam.ini"){}
-    ~ParamManagerKickParam(){}
-};
-class ParamManagerVisionParam:public ParamManager{
-public:
-    ParamManagerVisionParam():ParamManager("visionparam.ini"){}
-    ~ParamManagerVisionParam(){}
-};
-class ParamManagerLogClip:public ParamManager{
-public:
-    ParamManagerLogClip():ParamManager("logclip.ini"){}
-    ~ParamManagerLogClip(){}
-};
-typedef Singleton<ParamManagerZSS> ZParamManager;
-typedef Singleton<ParamManagerKickParam> KParamManager;
-typedef Singleton<ParamManagerVisionParam> VParamManager;
-typedef Singleton<ParamManagerLogClip> LParamManager;
-}
 
 #endif // PARAMMANAGER_H
-
-// void QSettings::setPath(Format format, Scope scope, const QString &path)
-  // QSettings settings("./myapp.ini", QSettings::IniFormat);

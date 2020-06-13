@@ -10,7 +10,7 @@ public:
     SingletonClass* operator ->() { return instance(); }
     const SingletonClass* operator ->() const { return instance(); }
 private:
-    Singleton(){}
-    ~Singleton(){}
+    Singleton()= default;
+    ~Singleton()= default;
 };
 #endif // __SINGLETON_H__

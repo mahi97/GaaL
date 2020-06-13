@@ -16,7 +16,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "sslworld.h"
+#include "sslworld.hpp"
 
 #define ROBOT_GRAY 0.4
 #define WHEEL_COUNT 4
@@ -24,22 +24,28 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 using namespace std;
 
-SSLWorld* _w;
+SSLWorld *_w;
 
 bool ballCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/);
+
 bool wheelCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/);
 
 
-SSLWorld::SSLWorld(const dReal &_dt) : dt(_dt) {
+SSLWorld::SSLWorld() {
 
     _w = this;
     cfg = new ConfigWidget();
 
-    auto* form1 = new RobotsFormation(1, cfg);
-    auto* form2 = form1;
+    bcnt = cfg->Blue_Robots_Count();
+    ycnt = cfg->Yellow_Robots_Count();
+    robot_cnt = bcnt + ycnt;
+    dt = cfg->DeltaTime();
+
+    auto *form1 = new RobotsFormation(1, cfg);
+    auto *form2 = form1;
     framenum = 0;
     last_dt = -1;
-    p = new PWorld(0.05, 9.81f, cfg->Robots_Count());
+    p = new PWorld(0.05, 9.81f, robot_cnt);
 
     ground = new PGround(cfg->Field_Rad(), cfg->Field_Length(), cfg->Field_Width(), cfg->Field_Penalty_Depth(),
                          cfg->Field_Penalty_Width(), cfg->Field_Penalty_Point(), cfg->Field_Line_Width(), 0);
@@ -111,33 +117,21 @@ SSLWorld::SSLWorld(const dReal &_dt) : dt(_dt) {
     p->addObject(ground);
     p->addObject(ball);
     for (auto &wall : walls) p->addObject(wall);
-    const int wheeltexid = 4 * cfg->Robots_Count() + 12 + 1; //37 for 6 robots
+    const int wheeltexid = 4 * robot_cnt + 12 + 1; //37 for 6 robots
 
 
     cfg->robotSettings = cfg->blueSettings;
-    for (int k = 0; k < cfg->Robots_Count(); k++) {
-        float a1 = -form1->x[k];
-        float a2 = form1->y[k];
-        float a3 = ROBOT_START_Z(cfg);
-        robots[k] = new SimRobot(p,
-                                 ball,
-                                 cfg,
-                                 -form1->x[k],
-                                 form1->y[k],
-                                 ROBOT_START_Z(cfg),
-                                 ROBOT_GRAY,
-                                 ROBOT_GRAY,
-                                 ROBOT_GRAY,
-                                 k + 1,
-                                 wheeltexid,
-                                 1);
+    for (int k = 0; k < ycnt; k++) {
+        robots[k] = new SimRobot(p,ball,cfg,-form1->x[k],form1->y[k],ROBOT_START_Z(cfg),
+                                 ROBOT_GRAY,ROBOT_GRAY,ROBOT_GRAY,
+                                 k + 1,wheeltexid,1);
     }
     cfg->robotSettings = cfg->yellowSettings;
-    for (int k = 0; k < cfg->Robots_Count(); k++)
-        robots[k + cfg->Robots_Count()] = new SimRobot(p, ball, cfg, form2->x[k], form2->y[k], ROBOT_START_Z(cfg),
-                                                       ROBOT_GRAY, ROBOT_GRAY, ROBOT_GRAY, k + cfg->Robots_Count() + 1,
-                                                       wheeltexid, -1);//XXX
-
+    for (int k = 0; k < bcnt; k++) {
+        robots[k + ycnt] = new SimRobot(p, ball, cfg, form2->x[k], form2->y[k], ROBOT_START_Z(cfg),
+                                        ROBOT_GRAY, ROBOT_GRAY, ROBOT_GRAY,
+                                        k + ycnt + 1, wheeltexid, -1);
+    }
     p->initAllObjects();
 
     //Surfaces
@@ -160,10 +154,9 @@ SSLWorld::SSLWorld(const dReal &_dt) : dt(_dt) {
 
     for (auto &wall : walls) p->createSurface(ball, wall)->surface = ballwithwall.surface;
 
-    for (int k = 0; k < 2 * cfg->Robots_Count(); k++) {
+    for (int k = 0; k < robot_cnt; k++) {
         p->createSurface(robots[k]->chassis, ground);
-        for (auto &wall : walls)
-            p->createSurface(robots[k]->chassis, wall);
+        for (auto &wall : walls) p->createSurface(robots[k]->chassis, wall);
         p->createSurface(robots[k]->dummy, ball);
         //p->createSurface(robots[k]->chassis,ball);
         p->createSurface(robots[k]->kicker->box, ball)->surface = ballwithkicker.surface;
@@ -174,16 +167,14 @@ SSLWorld::SSLWorld(const dReal &_dt) : dt(_dt) {
             w_g->usefdir1 = true;
             w_g->callback = wheelCallBack;
         }
-        for (int j = k + 1; j < 2 * cfg->Robots_Count(); j++) {
+        for (int j = k + 1; j < robot_cnt; j++) {
             if (k != j) {
-                p->createSurface(robots[k]->dummy,
-                                 robots[j]->dummy); //seams ode doesn't understand cylinder-cylinder contacts, so I used spheres
+                p->createSurface(robots[k]->dummy,robots[j]->dummy);
                 p->createSurface(robots[k]->chassis, robots[j]->kicker->box);
             }
         }
     }
     sendGeomCount = 0;
-    new char[65536];
 
     // initialize robot state
     for (int team = 0; team < 2; ++team) {
@@ -195,12 +186,11 @@ SSLWorld::SSLWorld(const dReal &_dt) : dt(_dt) {
 }
 
 int SSLWorld::robotIndex(int robot, int team) {
-    if (robot >= cfg->Robots_Count()) return -1;
-    return robot + team * cfg->Robots_Count();
+    if (robot >= robot_cnt) return -1;
+    return robot + team * ycnt;
 }
 
 SSLWorld::~SSLWorld() {
-    std::cout << "Here";
     delete p;
 }
 
@@ -225,99 +215,72 @@ void SSLWorld::step() {
         dBodyAddForce(ball->body, ballfx, ballfy, ballfz);
         if (dt == 0) dt = last_dt;
         else last_dt = dt;
-
-        selected = -1;
         p->step(dt / ballCollisionTry);
     }
-
-    int best_k = -1;
-    dReal best_dist = 1e8;
-    dReal xyz[3], hpr[3];
-    if (selected == -2) {
-        best_k = -2;
-        dReal bx, by, bz;
-        ball->getBodyPosition(bx, by, bz);
-        best_dist = (bx - xyz[0]) * (bx - xyz[0])
-                    + (by - xyz[1]) * (by - xyz[1])
-                    + (bz - xyz[2]) * (bz - xyz[2]);
-    }
-    for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
-        if (robots[k]->selected) {
-            dReal dist = (robots[k]->select_x - xyz[0]) * (robots[k]->select_x - xyz[0])
-                         + (robots[k]->select_y - xyz[1]) * (robots[k]->select_y - xyz[1])
-                         + (robots[k]->select_z - xyz[2]) * (robots[k]->select_z - xyz[2]);
-            if (dist < best_dist) {
-                best_dist = dist;
-                best_k = k;
-            }
-        }
-        robots[k]->chassis->setColor(ROBOT_GRAY, ROBOT_GRAY, ROBOT_GRAY);
-    }
-    if (best_k >= 0) robots[best_k]->chassis->setColor(ROBOT_GRAY * 2, ROBOT_GRAY * 1.5, ROBOT_GRAY * 1.5);
-    selected = best_k;
-    ball->tag = -1;
-    for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
+    for (int k = 0; k < robot_cnt; k++) {
         robots[k]->step();
-        robots[k]->selected = false;
     }
-    dMatrix3 R;
-
     framenum++;
 }
 
-void SSLWorld::act(const Action actions[], const int &size) {
-
-    for (int i = 0; i < size; i++) {
-        const auto &action = actions[i];
-        int team = action.team_id;
-        int k = action.robot_id;
+void SSLWorld::act(const std::vector<Action*>& actions) {
+    for (auto action : actions){
+        int team = action->team_id;
+        int k = action->robot_id;
         int id = robotIndex(k, team);
-        if ((id < 0) || (id >= cfg->Robots_Count() * 2)) continue;
 
-        if (action.use_wheel) for (int j = 0; j < WHEEL_COUNT; j++) robots[id]->setSpeed(j, action.wheel[j]);
-        else robots[id]->setSpeed(action.vel[0], action.vel[1], action.vel[2]);
+        robots[id]->setSpeed(action->vel[0], action->vel[1], action->vel[2]);
 
-        dReal kickx = action.kick[0];
-        dReal kickz = action.kick[1];
+        dReal kickx = action->kick[0];
+        dReal kickz = action->kick[1];
         if (kickx > 0.0001 || kickz > 0.0001) robots[id]->kicker->kick(kickx, kickz);
-        robots[id]->kicker->setRoller(action.spin);
+        robots[id]->kicker->setRoller(action->spin);
+
     }
 }
 
 
 void SSLWorld::reset() {
-//    if (packet.has_replacement()) {
-//        for (int i = 0; i < packet.replacement().robots_size(); i++) {
-//            int team = 0;
-//            if (packet.replacement().robots(i).has_yellowteam()) {
-//                if (packet.replacement().robots(i).yellowteam())
-//                    team = 1;
-//            }
-//            if (!packet.replacement().robots(i).has_id()) continue;
-//            int k = packet.replacement().robots(i).id();
-//            dReal x = 0, y = 0, dir = 0;
-//            bool turnon = true;
-//            if (packet.replacement().robots(i).has_x()) x = packet.replacement().robots(i).x();
-//            if (packet.replacement().robots(i).has_y()) y = packet.replacement().robots(i).y();
-//            if (packet.replacement().robots(i).has_dir()) dir = packet.replacement().robots(i).dir();
-//            if (packet.replacement().robots(i).has_turnon()) turnon = packet.replacement().robots(i).turnon();
-//            int id = robotIndex(k, team);
-//            if ((id < 0) || (id >= cfg->Robots_Count() * 2)) continue;
-//            robots[id]->setXY(x, y);
-//            robots[id]->resetRobot();
-//            robots[id]->setDir(dir);
-//            robots[id]->on = turnon;
+    auto *formation = new RobotsFormation(1, cfg);
+    formation->resetRobots(robots, 0);
+    formation->resetRobots(robots, 1);
+    ball->setBodyPosition(0.0, 0.0, cfg->BallRadius() * 1.2);
+    dBodySetLinearVel(ball->body, 0.0, 0.0, 0);
+    dBodySetAngularVel(ball->body, 0, 0, 0);
+    framenum = 0;
+//    for (int i = 0; i < ; i++) {
+//        robots[robot]
+//    }
+//    for (int i = 0; i < packet.replacement().robots_size(); i++) {
+//        int team = 0;
+//        if (packet.replacement().robots(i).has_yellowteam()) {
+//            if (packet.replacement().robots(i).yellowteam())
+//                team = 1;
 //        }
-//        if (packet.replacement().has_ball()) {
-//            dReal x = 0, y = 0, vx = 0, vy = 0;
-//            if (packet.replacement().ball().has_x()) x = packet.replacement().ball().x();
-//            if (packet.replacement().ball().has_y()) y = packet.replacement().ball().y();
-//            if (packet.replacement().ball().has_vx()) vx = packet.replacement().ball().vx();
-//            if (packet.replacement().ball().has_vy()) vy = packet.replacement().ball().vy();
-//            ball->setBodyPosition(x, y, cfg->BallRadius() * 1.2);
-//            dBodySetLinearVel(ball->body, vx, vy, 0);
-//            dBodySetAngularVel(ball->body, 0, 0, 0);
-//        }
+//        if (!packet.replacement().robots(i).has_id()) continue;
+//        int k = packet.replacement().robots(i).id();
+//        dReal x = 0, y = 0, dir = 0;
+//        bool turnon = true;
+//        if (packet.replacement().robots(i).has_x()) x = packet.replacement().robots(i).x();
+//        if (packet.replacement().robots(i).has_y()) y = packet.replacement().robots(i).y();
+//        if (packet.replacement().robots(i).has_dir()) dir = packet.replacement().robots(i).dir();
+//        if (packet.replacement().robots(i).has_turnon()) turnon = packet.replacement().robots(i).turnon();
+//        int id = robotIndex(k, team);
+//        if ((id < 0) || (id >= cfg->Robots_Count() * 2)) continue;
+//        robots[id]->setXY(x, y);
+//        robots[id]->resetRobot();
+//        robots[id]->setDir(dir);
+//        robots[id]->on = turnon;
+//    }
+//    if (packet.replacement().has_ball()) {
+//        dReal x = 0, y = 0, vx = 0, vy = 0;
+//        if (packet.replacement().ball().has_x()) x = packet.replacement().ball().x();
+//        if (packet.replacement().ball().has_y()) y = packet.replacement().ball().y();
+//        if (packet.replacement().ball().has_vx()) vx = packet.replacement().ball().vx();
+//        if (packet.replacement().ball().has_vy()) vy = packet.replacement().ball().vy();
+//        ball->setBodyPosition(x, y, cfg->BallRadius() * 1.2);
+//        dBodySetLinearVel(ball->body, vx, vy, 0);
+//        dBodySetAngularVel(ball->body, 0, 0, 0);
 //    }
 }
 
@@ -348,10 +311,10 @@ bool SSLWorld::visibleInCam(int id, double x, double y) {
 }
 
 Observation* SSLWorld::getObservation(const int &cam_id) {
-    auto* obs = new Observation();
+    auto *obs = new Observation();
     dReal x, y, z, dir, k;
     ball->getBodyPosition(x, y, z);
-
+    const dReal *ballvel = dBodyGetLinearVel(ball->body);
     dReal dev_x = cfg->noiseDeviation_x();
     dReal dev_y = cfg->noiseDeviation_y();
     dReal dev_a = cfg->noiseDeviation_angle();
@@ -362,23 +325,32 @@ Observation* SSLWorld::getObservation(const int &cam_id) {
             obs->ball[0] = rand_notrig(x * 1000.0f, dev_x);
             obs->ball[1] = rand_notrig(y * 1000.0f, dev_y);
             obs->ball[2] = z * 1000.0f;
+            obs->ball[3] = ballvel[0];
+            obs->ball[4] = ballvel[1];
+            obs->ball[5] = ballvel[2];
         }
-        for (int i = 0; i < cfg->Robots_Count() * 2; i++) {
+        for (int i = 0; i < robot_cnt; i++) {
             if (!robots[i]->on) continue;
             robots[i]->getXY(x, y);
             dir = robots[i]->getDir(k);
             // reset when the robot has turned over
-//            if (k < 0.9) {
-//                robots[i]->resetRobot();
-//            }
+            if (k < 0.9) {
+                robots[i]->resetRobot();
+            }
+            const dReal *robot_vel = dBodyGetLinearVel(robots[i]->chassis->body);
+            const dReal *robot_w = dBodyGetAngularVel(robots[i]->chassis->body);
             if (visibleInCam(cam_id, x, y)) {
                 int team_id = 0;
-                if (i >= cfg->Robots_Count()) team_id = 1;
-                obs->robots[team_id][i %  cfg->Robots_Count()][0] = rand_notrig(x * 1000.0f, dev_x);
-                obs->robots[team_id][i %  cfg->Robots_Count()][1] = rand_notrig(y * 1000.0f, dev_y);
-                obs->robots[team_id][i %  cfg->Robots_Count()][2] = normalizeAngle(rand_notrig(dir, dev_a)) * M_PI / 180.0f;
-                obs->kick[team_id][i %  cfg->Robots_Count()][0] = robots[i]->kicker->isTouchingBall();
-                obs->kick[team_id][i %  cfg->Robots_Count()][1] = robots[i]->kicker->isKicking();
+                if (i >= ycnt) team_id = 1;
+                obs->robots[team_id][i % ycnt][0] = rand_notrig(x * 1000.0f, dev_x);
+                obs->robots[team_id][i % ycnt][1] = rand_notrig(y * 1000.0f, dev_y);
+                obs->robots[team_id][i % ycnt][2] = normalizeAngle(rand_notrig(dir, dev_a)) * M_PI / 180.0f;
+                obs->robots[team_id][i % ycnt][3] = robot_vel[0];
+                obs->robots[team_id][i % ycnt][4] = robot_vel[1];
+                obs->robots[team_id][i % ycnt][5] = robot_w[2];
+
+                obs->kick[team_id][i % ycnt][0] = robots[i]->kicker->isTouchingBall();
+                obs->kick[team_id][i % ycnt][1] = robots[i]->kicker->isKicking();
             }
         }
     }
@@ -386,22 +358,22 @@ Observation* SSLWorld::getObservation(const int &cam_id) {
 }
 
 void SSLWorld::addFieldLinesArcs(SSL_GeometryFieldSize *field) {
-    const double kFieldLength = CONV_UNIT(cfg->Field_Length());
-    const double kFieldWidth = CONV_UNIT(cfg->Field_Width());
-    const double kGoalWidth = CONV_UNIT(cfg->Goal_Width());
-    const double kGoalDepth = CONV_UNIT(cfg->Goal_Depth());
-    const double kBoundaryWidth = CONV_UNIT(cfg->Field_Referee_Margin());
-    const double kCenterRadius = CONV_UNIT(cfg->Field_Rad());
-    const double kLineThickness = CONV_UNIT(cfg->Field_Line_Width());
-    const double kPenaltyDepth = CONV_UNIT(cfg->Field_Penalty_Depth());
-    const double kPenaltyWidth = CONV_UNIT(cfg->Field_Penalty_Width());
+    const float kFieldLength = CONV_UNIT(cfg->Field_Length());
+    const float kFieldWidth = CONV_UNIT(cfg->Field_Width());
+    const float kGoalWidth = CONV_UNIT(cfg->Goal_Width());
+    const float kGoalDepth = CONV_UNIT(cfg->Goal_Depth());
+    const float kBoundaryWidth = CONV_UNIT(cfg->Field_Referee_Margin());
+    const float kCenterRadius = CONV_UNIT(cfg->Field_Rad());
+    const float kLineThickness = CONV_UNIT(cfg->Field_Line_Width());
+    const float kPenaltyDepth = CONV_UNIT(cfg->Field_Penalty_Depth());
+    const float kPenaltyWidth = CONV_UNIT(cfg->Field_Penalty_Width());
 
-    const double kXMax = (kFieldLength - 2 * kLineThickness) / 2;
-    const double kXMin = -kXMax;
-    const double kYMax = (kFieldWidth - kLineThickness) / 2;
-    const double kYMin = -kYMax;
-    const double penAreaX = kXMax - kPenaltyDepth;
-    const double penAreaY = kPenaltyWidth / 2.0;
+    const float kXMax = (kFieldLength - 2 * kLineThickness) / 2.0f;
+    const float kXMin = -kXMax;
+    const float kYMax = (kFieldWidth - kLineThickness) / 2.0f;
+    const float kYMin = -kYMax;
+    const float penAreaX = kXMax - kPenaltyDepth;
+    const float penAreaY = kPenaltyWidth / 2.0f;
 
     // Field lines
     addFieldLine(field, "TopTouchLine", kXMin - kLineThickness / 2, kYMax, kXMax + kLineThickness / 2, kYMax,
@@ -451,8 +423,7 @@ Vector2f *SSLWorld::allocVector(float x, float y) {
     return vec;
 }
 
-void
-SSLWorld::addFieldLine(SSL_GeometryFieldSize *field, const std::string &name, float p1_x, float p1_y, float p2_x,
+void SSLWorld::addFieldLine(SSL_GeometryFieldSize *field, const std::string &name, float p1_x, float p1_y, float p2_x,
                        float p2_y, float thickness) {
     SSL_FieldLineSegment *line = field->add_field_lines();
     line->set_name(name.c_str());
@@ -463,8 +434,7 @@ SSLWorld::addFieldLine(SSL_GeometryFieldSize *field, const std::string &name, fl
     line->set_thickness(thickness);
 }
 
-void
-SSLWorld::addFieldArc(SSL_GeometryFieldSize *field, const std::string &name, float c_x, float c_y, float radius,
+void SSLWorld::addFieldArc(SSL_GeometryFieldSize *field, const std::string &name, float c_x, float c_y, float radius,
                       float a1, float a2, float thickness) {
     SSL_FieldCicularArc *arc = field->add_field_arcs();
     arc->set_name(name.c_str());
@@ -475,108 +445,6 @@ SSLWorld::addFieldArc(SSL_GeometryFieldSize *field, const std::string &name, flo
     arc->set_a2(a2);
     arc->set_thickness(thickness);
 }
-
-void RobotsFormation::setAll(dReal *xx, dReal *yy) {
-    for (int i = 0; i < MAX_ROBOT_COUNT; i++) {
-        x[i] = xx[i];
-        y[i] = yy[i];
-    }
-}
-
-RobotsFormation::RobotsFormation(int
-                               type, ConfigWidget *_cfg) : cfg(_cfg) {
-    if (type == 0) {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {2.20, 1.00, 1.00, 1.00, 0.33, 1.22,
-                                           3.00, 3.20, 3.40, 3.60, 3.80, 4.00,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {0.00, -0.75, 0.00, 0.75, 0.25, 0.00,
-                                           1.00, 1.00, 1.00, 1.00, 1.00, 1.00,
-                                           -3.50, -3.50, -3.50, -3.50};
-        setAll(teamPosX, teamPosY);
-    }
-    if (type == 1) // formation 1
-    {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {1.50, 1.50, 1.50, 0.55, 2.50, 3.60,
-                                           3.20, 3.20, 3.20, 3.20, 3.20, 3.20,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {1.12, 0.0, -1.12, 0.00, 0.00, 0.00,
-                                           0.75, -0.75, 1.50, -1.50, 2.25, -2.25,
-                                           -3.50, -3.50, -3.50, -3.50};
-        setAll(teamPosX, teamPosY);
-    }
-    if (type == 2) // formation 2
-    {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {4.20, 3.40, 3.40, 0.70, 0.70, 0.70,
-                                           2.00, 2.00, 2.00, 2.00, 2.00, 2.00,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {0.00, -0.20, 0.20, 0.00, 2.25, -2.25,
-                                           0.75, -0.75, 1.50, -1.50, 2.25, -2.25,
-                                           -3.50, -3.50, -3.50, -3.50};
-        setAll(teamPosX, teamPosY);
-    }
-    if (type == 3) // outside field
-    {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {0.40, 0.80, 1.20, 1.60, 2.00, 2.40,
-                                           2.80, 3.20, 3.60, 4.00, 4.40, 4.80,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {-4.00, -4.00, -4.00, -4.00, -4.00, -4.00,
-                                           -4.00, -4.00, -4.00, -4.00, -4.00, -4.00,
-                                           -4.40, -4.40, -4.40, -4.40};
-        setAll(teamPosX, teamPosY);
-    }
-    if (type == 4) {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {2.80, 2.50, 2.50, 0.80, 0.80, 1.10,
-                                           3.00, 3.20, 3.40, 3.60, 3.80, 4.00,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {5.00, 4.70, 5.30, 5.00, 6.50, 5.50,
-                                           1.00, 1.00, 1.00, 1.00, 1.00, 1.00,
-                                           -3.50, -3.50, -3.50, -3.50};
-        setAll(teamPosX, teamPosY);
-    }
-    if (type == -1) // outside
-    {
-        dReal teamPosX[MAX_ROBOT_COUNT] = {0.40, 0.80, 1.20, 1.60, 2.00, 2.40,
-                                           2.80, 3.20, 3.60, 4.00, 4.40, 4.80,
-                                           0.40, 0.80, 1.20, 1.60};
-        dReal teamPosY[MAX_ROBOT_COUNT] = {-3.40, -3.40, -3.40, -3.40, -3.40, -3.40,
-                                           -3.40, -3.40, -3.40, -3.40, -3.40, -3.40,
-                                           -3.20, -3.20, -3.20, -3.20};
-        setAll(teamPosX, teamPosY);
-    }
-
-}
-
-void RobotsFormation::loadFromFile(const QString &filename) {
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        return;
-    QTextStream in(&file);
-    int k;
-    for (k = 0; k < cfg->Robots_Count(); k++) x[k] = y[k] = 0;
-    k = 0;
-    while (!in.atEnd()) {
-        QString line = in.readLine();
-        QStringList list = line.split(",");
-        if (list.count() >= 2) {
-            x[k] = list[0].toFloat();
-            y[k] = list[1].toFloat();
-        } else if (list.count() == 1) {
-            x[k] = list[0].toFloat();
-        }
-        if (k == cfg->Robots_Count() - 1) break;
-        k++;
-    }
-}
-
-void RobotsFormation::resetRobots(SimRobot **r, int team) {
-    dReal dir = -1;
-    if (team == 1) dir = 1;
-    for (int k = 0; k < cfg->Robots_Count(); k++) {
-        r[k + team * cfg->Robots_Count()]->setXY(x[k] * dir, y[k]);
-        r[k + team * cfg->Robots_Count()]->resetRobot();
-    }
-}
-
 
 bool wheelCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/) {
     //s->id2 is ground
